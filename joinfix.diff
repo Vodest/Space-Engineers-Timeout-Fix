@@ -1,0 +1,46 @@
+Index: Sources/Sandbox.Game/Engine/Networking/MyWorkshop.cs
+===================================================================
+--- Sources/Sandbox.Game/Engine/Networking/MyWorkshop.cs	(revision 124917)
++++ Sources/Sandbox.Game/Engine/Networking/MyWorkshop.cs	(working copy)
+@@ -196,6 +196,11 @@
+             }
+         }
+ 
++        public static bool DownloadScreenVisible
++        {
++            get { return m_downloadScreen?.Visible ?? false; }
++        }
++
+         private static MyGuiScreenMessageBox m_downloadScreen;
+         private static DownloadModsResult m_downloadResult;
+ 
+Index: Sources/Sandbox.Game/Game/Screens/MyJoinGameHelper.cs
+===================================================================
+--- Sources/Sandbox.Game/Game/Screens/MyJoinGameHelper.cs	(revision 124917)
++++ Sources/Sandbox.Game/Game/Screens/MyJoinGameHelper.cs	(working copy)
+@@ -247,16 +247,23 @@
+                 }
+ 
+                 bool isTop = MyScreenManager.IsScreenOnTop(progress);
+-                if (isTop && !worldRequestTime.IsRunning)
++                bool visible = MyWorkshop.DownloadScreenVisible;
++
++                if (!visible && isTop && !worldRequestTime.IsRunning)
+                 {
+                     worldRequestTime.Start();
+                 }
+-                else if (!isTop && worldRequestTime.IsRunning)
++                else if (visible || !isTop && worldRequestTime.IsRunning)
+                 {
+                     worldRequestTime.Stop();
+                 }
+ 
++                if (visible && progress.Visible)
++                    progress.HideScreen();
++                else if (!visible && !progress.Visible)
++                    progress.UnhideScreen();
+ 
++
+                 if (worldRequestTime.IsRunning && worldRequestTime.Elapsed.TotalSeconds > worldRequestTimeout)
+                 {
+                     MyLog.Default.WriteLine("World requested - failed, server changed");
