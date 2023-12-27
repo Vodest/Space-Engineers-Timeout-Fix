@@ -1,12 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
+﻿using System.Diagnostics;
 using System.Reflection;
-using System.Text;
 using VRage.Plugins;
-using System.Threading.Tasks;
-using ClientPlugin;
 using Sandbox.Engine.Multiplayer;
 using Sandbox.Engine.Networking;
 using Sandbox.Game;
@@ -36,7 +30,8 @@ namespace TimeoutFixPlugin
 
         public void Init(object gameInstance)
         {
-            MethodUtil.ReplaceMethod(_patch, _target);
+            // source for MethodUtil not given on the reddit post
+            //MethodUtil.ReplaceMethod(_patch, _target);
         }
 
         public void Update()
@@ -124,7 +119,7 @@ namespace TimeoutFixPlugin
                 }
             };
 
-            multiplayer.DownloadWorld();
+            multiplayer.DownloadWorld(0);
         }
     }
 }
