@@ -1,37 +1,46 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Reflection;
-using VRage.Plugins;
+using System.Text;
+using ClientPlugin;
+using Sandbox;
 using Sandbox.Engine.Multiplayer;
 using Sandbox.Engine.Networking;
 using Sandbox.Game;
 using Sandbox.Game.Gui;
+using Sandbox.Game.Screens;
+using Sandbox.Game.World;
 using Sandbox.Graphics.GUI;
 using VRage;
+using VRage.Game;
 using VRage.GameServices;
+using VRage.Plugins;
 using VRage.Utils;
 
 namespace TimeoutFixPlugin
 {
-    public class TimeoutFix : IPlugin
+    public class TimeoutFix : IPlugin, IDisposable
     {
-        public void Dispose()
+        private static MyGuiScreenProgressBase m_progress
         {
-            
+            get
+            {
+                return (MyGuiScreenProgressBase)((MyGuiScreenProgressBase)TimeoutFix._progressField.GetValue(null));
+            }
+            set
+            {
+                TimeoutFix._progressField.SetValue(null, value);
+            }
         }
 
-        private static MethodInfo _target = typeof(MyJoinGameHelper).GetMethod("DownloadWorld", BindingFlags.NonPublic | BindingFlags.Static);
-        private static MethodInfo _patch = typeof(TimeoutFix).GetMethod(nameof(DownloadWorld), BindingFlags.NonPublic | BindingFlags.Static);
-
-        private static FieldInfo _downloadField = typeof(MyWorkshop).GetField("m_downloadScreen", BindingFlags.NonPublic | BindingFlags.Static);
-
-        private static MyGuiScreenMessageBox DownloadScreen => (MyGuiScreenMessageBox)_downloadField.GetValue(null);
-
-        private static bool DownloadVisible => DownloadScreen?.Visible ?? false;
+        public void Dispose()
+        {
+        }
 
         public void Init(object gameInstance)
         {
-            // source for MethodUtil not given on the reddit post
-            //MethodUtil.ReplaceMethod(_patch, _target);
+            MethodUtil.ReplaceMethod(TimeoutFix._patch, TimeoutFix._target);
+            MethodUtil.ReplaceMethod(TimeoutFix._receivePatch, TimeoutFix._receiveTarget);
         }
 
         public void Update()
@@ -40,86 +49,157 @@ namespace TimeoutFixPlugin
 
         private static void DownloadWorld(MyGuiScreenProgress progress, MyMultiplayerBase multiplayer)
         {
-            if (progress.Text != null)
+            TimeoutFix._worldReceived = false;
+            bool flag = progress.Text != null;
+            if (flag)
             {
                 progress.Text.Clear();
                 progress.Text.Append(MyTexts.Get(MyCommonTexts.MultiplayerStateConnectingToServer));
             }
-
-            MyLog.Default.WriteLine("World requested");
-
-            const float worldRequestTimeout = 40; // in seconds
+            MyLog.Default.WriteLine("World requested: Timeout fix v2.2");
             Stopwatch worldRequestTime = Stopwatch.StartNew();
-
             ulong serverId = multiplayer.GetOwner();
             bool connected = false;
-            progress.Tick += () =>
+            progress.Tick += delegate
             {
-                MyP2PSessionState state = default(MyP2PSessionState);
-                MyGameService.Peer2Peer.GetSessionState(multiplayer.ServerId, ref state);
-
-                if (!connected && state.ConnectionActive)
+                MyP2PSessionState myP2PSessionState = default(MyP2PSessionState);
+                MyGameService.Peer2Peer.GetSessionState(multiplayer.ServerId, ref myP2PSessionState);
+                bool flag2 = !connected && myP2PSessionState.ConnectionActive;
+                if (flag2)
                 {
                     MyLog.Default.WriteLine("World requested - connection alive");
                     connected = true;
-                    if (progress.Text != null)
+                    bool flag3 = progress.Text != null;
+                    if (flag3)
                     {
                         progress.Text.Clear();
-                        progress.Text.AppendLine("Using Rexxar's fixed join code! :D");
+                        progress.Text.AppendLine("Using Rexxar's fixed join code v2.2! :D");
                         progress.Text.Append(MyTexts.Get(MyCommonTexts.MultiplayerStateWaitingForServer));
                     }
                 }
-
-                bool isTop = MyScreenManager.IsScreenOnTop(progress);
-                //progress.Text.Clear();
-                //progress.Text.AppendLine($"Elapsed: {worldRequestTime.ElapsedMilliseconds}");
-                //progress.Text.AppendLine($"Download Status: {DownloadScreen?.Visible.ToString() ?? "Not open"} : {DownloadVisible}");
-                //progress.Text.AppendLine("Connecting: " + state.Connecting);
-                //progress.Text.AppendLine("ConnectionActive: " + state.ConnectionActive);
-                //progress.Text.AppendLine("Relayed: " + state.UsingRelay);
-                //progress.Text.AppendLine("Bytes queued: " + state.BytesQueuedForSend);
-                //progress.Text.AppendLine("Packets queued: " + state.PacketsQueuedForSend);
-                //progress.Text.AppendLine("Last session error: " + state.LastSessionError);
-                //progress.Text.AppendLine("Original server: " + serverId);
-                ////progress.Text.AppendLine("Current server: " + multiplayer.Lobby.GetOwner());
-                //progress.Text.AppendLine("Game version: " + multiplayer.AppVersion);
-                //progress.Text.Append($"IsTop: {isTop}");
-
-                if (serverId != multiplayer.GetOwner())
+                bool flag4 = connected && !myP2PSessionState.ConnectionActive;
+                if (flag4)
                 {
-                    MyLog.Default.WriteLine("World requested - failed, server changed");
+                    MyLog.Default.WriteLine("World request - connection dropped");
                     progress.Cancel();
-                    MyGuiSandbox.Show(MyCommonTexts.MultiplayerErrorServerHasLeft);
+                    MyGuiSandbox.Show(MyCommonTexts.MultiplaterJoin_ServerIsNotResponding, default(MyStringId), MyMessageBoxStyleEnum.Error);
+                    MySessionLoader.UnloadAndExitToMenu();
+                }
+                bool flag5 = MyScreenManager.IsScreenOnTop((MyGuiScreenBase)progress);
+                bool flag6 = serverId != multiplayer.GetOwner();
+                if (flag6)
+                {
+                    MyLog.Default.WriteLine(string.Format("World requested - failed, server changed: Expected {0} got {1}", serverId, multiplayer.GetOwner()));
+                    progress.Cancel();
+                    MyGuiSandbox.Show(MyCommonTexts.MultiplayerErrorServerHasLeft, default(MyStringId), MyMessageBoxStyleEnum.Error);
                     multiplayer.Dispose();
                 }
-
-                bool visible = DownloadVisible;
-
-                if (!visible && isTop && !worldRequestTime.IsRunning)
+                bool flag7 = MyScreenManager.IsScreenOfTypeOpen(typeof(MyGuiScreenDownloadMods));
+                bool flag8 = !flag7 && flag5 && !worldRequestTime.IsRunning;
+                if (flag8)
                 {
                     worldRequestTime.Start();
                 }
-                else if (visible || !isTop && worldRequestTime.IsRunning)
+                else
                 {
-                    worldRequestTime.Stop();
+                    bool flag9 = flag7 || (!flag5 && worldRequestTime.IsRunning);
+                    if (flag9)
+                    {
+                        worldRequestTime.Stop();
+                    }
                 }
-
-                if (visible && progress.Visible)
-                    progress.HideScreen();
-                else if (!visible && !progress.Visible)
-                    progress.UnhideScreen();
-
-
-                if (worldRequestTime.IsRunning && worldRequestTime.Elapsed.TotalSeconds > worldRequestTimeout)
+                bool flag10 = flag7 && progress.Visible;
+                if (flag10)
                 {
-                    MyLog.Default.WriteLine("World requested - failed, server changed");
+                    progress.HideScreen();
+                }
+                else
+                {
+                    bool flag11 = !flag7 && !progress.Visible;
+                    if (flag11)
+                    {
+                        progress.UnhideScreen();
+                    }
+                }
+                bool flag12 = !TimeoutFix._worldReceived && worldRequestTime.IsRunning && (float)(worldRequestTime.ElapsedTicks / Stopwatch.Frequency) > 120f;
+                if (flag12)
+                {
+                    MyLog.Default.WriteLine("World requested - failed, timeout reached");
+                    MyLog.Default.WriteLine(string.Format("Elapsed : {0:N2}", worldRequestTime.ElapsedTicks / Stopwatch.Frequency));
                     progress.Cancel();
-                    MyGuiSandbox.Show(MyCommonTexts.MultiplaterJoin_ServerIsNotResponding);
-                    multiplayer.Dispose();
+                    MyGuiSandbox.Show(MyCommonTexts.MultiplaterJoin_ServerIsNotResponding, default(MyStringId), MyMessageBoxStyleEnum.Error);
+                    MySessionLoader.UnloadAndExitToMenu();
                 }
             };
-
-            multiplayer.DownloadWorld(0);
+            multiplayer.DownloadWorld(MyFinalBuildConstants.APP_VERSION.Version);
         }
+
+        private static void CheckDx11AndJoin(MyObjectBuilder_World world, MyMultiplayerBase multiplayer)
+        {
+            bool scenario = multiplayer.Scenario;
+            if (scenario)
+            {
+                MySessionLoader.LoadMultiplayerScenarioWorld(world, multiplayer);
+            }
+            else
+            {
+                MySessionLoader.LoadMultiplayerSession(world, multiplayer);
+            }
+        }
+
+        private static void WorldReceived(MyObjectBuilder_World world, MyMultiplayerBase multiplayer)
+        {
+            bool flag = world == null;
+            if (flag)
+            {
+                MyLog.Default.WriteLine("World requested - failed, version mismatch");
+                TimeoutFix.m_progress.Cancel();
+                TimeoutFix.m_progress = null;
+                MyGuiSandbox.Show(MyCommonTexts.MultiplayerErrorAppVersionMismatch, default(MyStringId), MyMessageBoxStyleEnum.Error);
+                multiplayer.Dispose();
+            }
+            else
+            {
+                TimeoutFix._worldReceived = true;
+                MyLog.Default.WriteLine("World requested - world data received");
+                bool flag2;
+                if (world == null)
+                {
+                    flag2 = null != null;
+                }
+                else
+                {
+                    MyObjectBuilder_Checkpoint checkpoint = world.Checkpoint;
+                    flag2 = ((checkpoint != null) ? checkpoint.Settings : null) != null;
+                }
+                bool flag3 = flag2 && !MySandboxGame.Config.ExperimentalMode;
+                if (flag3)
+                {
+                    MySessionLoader.UnloadAndExitToMenu();
+                    StringBuilder stringBuilder = new StringBuilder();
+                    stringBuilder.AppendFormat(MyCommonTexts.DialogTextJoinWorldFailed, MyTexts.GetString(MyCommonTexts.MultiplayerErrorExperimental));
+                    MyGuiSandbox.AddScreen((MyGuiScreenBase)MyGuiSandbox.CreateMessageBox(MyMessageBoxStyleEnum.Error, MyMessageBoxButtonsType.OK, stringBuilder, MyTexts.Get(MyCommonTexts.MessageBoxCaptionError), null, null, null, null, null, 0, MyGuiScreenMessageBox.ResultEnum.YES, true, null, true, null, true, false, null));
+                }
+                else
+                {
+                    TimeoutFix.m_progress = null;
+                    TimeoutFix.CheckDx11AndJoin(world, multiplayer);
+                }
+            }
+        }
+
+        private static MethodInfo _target = typeof(MyJoinGameHelper).GetMethod("DownloadWorld", BindingFlags.Static | BindingFlags.NonPublic);
+
+        private static MethodInfo _patch = typeof(TimeoutFix).GetMethod("DownloadWorld", BindingFlags.Static | BindingFlags.NonPublic);
+
+        private static MethodInfo _receiveTarget = typeof(MyJoinGameHelper).GetMethod("WorldReceived", BindingFlags.Static | BindingFlags.Public);
+
+        private static MethodInfo _receivePatch = typeof(TimeoutFix).GetMethod("WorldReceived", BindingFlags.Static | BindingFlags.NonPublic);
+
+        private static bool _worldReceived;
+
+        private static readonly FieldInfo _progressField = typeof(MyJoinGameHelper).GetField("m_progress", BindingFlags.Static | BindingFlags.NonPublic);
+
+        private const string VERSION = "v2.2";
     }
 }
