@@ -14,11 +14,12 @@ and released on [reddit][reddit] with the source.
 Later versions of the plugin were distributed in binary form (dll) among the
 Space Engineers community but, to our knowledge, without source.
 The purpose of this repository is to present the source of the latest known
-version of the plugin, for inclusion in the [Plugin Hub][pluginhub] of
-[Plugin Loader][pluginloader].
+version of the plugin, for [inclusion][pluginhub-def] in the
+[Plugin Hub][pluginhub] of [Plugin Loader][pluginloader].
 
-[pluginloader]: https://github.com/sepluginloader/PluginLoader
 [pluginhub]: https://github.com/sepluginloader/PluginHub
+[pluginloader]: https://github.com/sepluginloader/PluginLoader
+[pluginhub-def]: https://github.com/sepluginloader/PluginHub/blob/main/Plugins/TimeoutFix.xml
 
 ## Credits
 
