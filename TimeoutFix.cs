@@ -56,7 +56,7 @@ namespace TimeoutFixPlugin
                 progress.Text.Clear();
                 progress.Text.Append(MyTexts.Get(MyCommonTexts.MultiplayerStateConnectingToServer));
             }
-            MyLog.Default.WriteLine("World requested: Timeout fix v2.2");
+            MyLog.Default.WriteLine($"World requested: Timeout fix {VERSION}");
             Stopwatch worldRequestTime = Stopwatch.StartNew();
             ulong serverId = multiplayer.GetOwner();
             bool connected = false;
@@ -72,9 +72,7 @@ namespace TimeoutFixPlugin
                     bool flag3 = progress.Text != null;
                     if (flag3)
                     {
-                        progress.Text.Clear();
-                        progress.Text.AppendLine("Using Rexxar's fixed join code v2.2! :D");
-                        progress.Text.Append(MyTexts.Get(MyCommonTexts.MultiplayerStateWaitingForServer));
+                        progress.Text.AppendLine($" - Using Rexxar's fixed join code {VERSION}");
                     }
                 }
                 bool flag4 = connected && !myP2PSessionState.ConnectionActive;
@@ -98,6 +96,7 @@ namespace TimeoutFixPlugin
                 bool flag8 = !flag7 && flag5 && !worldRequestTime.IsRunning;
                 if (flag8)
                 {
+                    MyLog.Default.WriteLine("World request - starting timer");
                     worldRequestTime.Start();
                 }
                 else
@@ -105,6 +104,7 @@ namespace TimeoutFixPlugin
                     bool flag9 = flag7 || (!flag5 && worldRequestTime.IsRunning);
                     if (flag9)
                     {
+                        MyLog.Default.WriteLine("World request - stopping timer");
                         worldRequestTime.Stop();
                     }
                 }
@@ -121,7 +121,7 @@ namespace TimeoutFixPlugin
                         progress.UnhideScreen();
                     }
                 }
-                bool flag12 = !TimeoutFix._worldReceived && worldRequestTime.IsRunning && (float)(worldRequestTime.ElapsedTicks / Stopwatch.Frequency) > 120f;
+                bool flag12 = !TimeoutFix._worldReceived && worldRequestTime.IsRunning && (float)(worldRequestTime.ElapsedTicks / Stopwatch.Frequency) > 300f;
                 if (flag12)
                 {
                     MyLog.Default.WriteLine("World requested - failed, timeout reached");
@@ -149,6 +149,7 @@ namespace TimeoutFixPlugin
 
         private static void WorldReceived(MyObjectBuilder_World world, MyMultiplayerBase multiplayer)
         {
+            MyLog.Default.WriteLine("World requested - Attempting World Download");
             bool flag = world == null;
             if (flag)
             {
@@ -200,6 +201,6 @@ namespace TimeoutFixPlugin
 
         private static readonly FieldInfo _progressField = typeof(MyJoinGameHelper).GetField("m_progress", BindingFlags.Static | BindingFlags.NonPublic);
 
-        private const string VERSION = "v2.2";
+        private const string VERSION = "v2.3";
     }
 }
